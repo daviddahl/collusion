@@ -178,7 +178,7 @@ function drawTimerHand(time){
 }
 
 
-clock.on('init', function(connections){
+clock.once('init', function(connections){
     // draw clock dial
     vizcanvas.setAttribute('viewBox', '-350 -495 700 500');
     drawTimes();

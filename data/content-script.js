@@ -12,7 +12,7 @@ self.port.on('connection', function(connection){
         connection.timestamp = new Date(connection.timestamp);
         unsafeWindow.currentVisualization.emit('connection', connection);
     }else{
-        console.log('cannot call unsafeWindow.currentVisualization: '  + unsafeWindow);
+        unsafeWindow.console.log('cannot call unsafeWindow.currentVisualization: '  + unsafeWindow);
     }
 });
 
@@ -24,7 +24,7 @@ self.port.on('init', function(message){
         });
         unsafeWindow.currentVisualization.emit('init', connections);
     }else{
-        console.log('cannot call unsafeWindow.currentVisualization: ' + unsafeWindow);
+        unsafeWindow.console.log('cannot call unsafeWindow.currentVisualization: ' + unsafeWindow.currentVisualization);
     }
 });
 

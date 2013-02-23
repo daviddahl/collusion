@@ -118,6 +118,47 @@ function timeToBucket(timestamp){
 
 clock.on('connection', onConnection);
 
+
+var tooltipTimer;
+
+function showTooltip(event){
+    // console.log('Show tooltip for %s: %s', event.target.tagName, event.target.getAttribute('data-target'));
+    var tooltip = document.getElementById('tooltip');
+    tooltip.style.left = '-1000px';
+    tooltip.style.display = 'inline-block';
+    tooltip.innerHTML = event.target.getAttribute('data-target');
+    var rect = event.target.getClientRects()[0];
+    var tooltipWidth = tooltip.offsetWidth;
+    // console.log('rect: %o, width: %s', rect, tooltipWidth);
+    tooltip.style.top = (rect.top  - 60) + 'px';
+    tooltip.style.left = (rect.left + (rect.width / 2) - (tooltipWidth / 2)) + 'px';
+    // PLACEHOLDER (FOR DEBUGGING)
+    // placeholder.style.left = rect.left + 'px';
+    // placeholder.style.top = rect.top + 'px';
+    // placeholder.style.border = '1px solid red';
+    return false;
+}
+
+function setTooltipTimeout(){
+    if (tooltipTimer){
+        clearTimeout(tooltipTimer);
+    }
+    tooltipTimer = setTimeout(timeoutTooltip, 2000);
+}
+
+function timeoutTooltip(){
+    tooltip.style.display = 'none';
+    tooltip.timer = null;
+}
+
+function hideTooltip(event){
+    // console.log('Hide tooltip for %s: %s', event.target.tagName, event.target.getAttribute('data-target'));
+    // tooltip.style.display = 'none';
+    // placeholder.style.border = '0';
+    setTooltipTimeout();
+    return false;
+}
+
 function onConnection(connection){
     // A connection has the following keys:
     // source (url), target (url), timestamp (int), contentType (str), cookie (bool), sourceVisited (bool), secure(bool), sourcePathDepth (int), sourceQueryDepth(int)
@@ -137,29 +178,31 @@ function onConnection(connection){
     bucket.connections.push(connection);
     var g = svg('g', {
         // transform: 'rotate(90)',
-        'class': 'tracker'
+        'class': 'tracker',
+        'data-target': connection.target
     });
+    g.onmouseenter = showTooltip;
+    g.onmouseleave = hideTooltip;
     var x = connectionIdx * 10;
     var y = 0;
     g.appendChild(svg('circle', {
         cx: x,
         cy: y,
-        r: 3,
-        'class': 'tracker'
+        r: 3
     }));
-    var text = svg('text', {
-        x: x + 8,
-        y: y - 2
-    }, connection.target);
-    g.appendChild(text);
-    g.insertBefore(svg('rect', {
-        x: x,
-        y: y-3,
-        width: text.getComputedTextLength() + 14,
-        height: 6,
-        rx: 3,
-        ry: 3
-    }), text);
+    // var text = svg('text', {
+    //     x: x + 8,
+    //     y: y - 2
+    // }, connection.target);
+    // g.appendChild(text);
+    // g.insertBefore(svg('rect', {
+    //     x: x,
+    //     y: y-3,
+    //     width: text.getComputedTextLength() + 14,
+    //     height: 6,
+    //     rx: 3,
+    //     ry: 3
+    // }), text);
     bucket.group.appendChild(g);
 }
 
@@ -178,14 +221,11 @@ function drawTimerHand(time){
 }
 
 
-clock.once('init', function(connections){
+clock.once('init', function(){
     // draw clock dial
     vizcanvas.setAttribute('viewBox', '-350 -495 700 500');
     drawTimes();
     drawTimerHand();
-    connections.forEach(function(connection){
-        onConnection(connection);
-    });
 });
 
 clock.on('remove', function(connections){

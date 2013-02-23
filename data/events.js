@@ -22,7 +22,7 @@ Emitter.prototype.once = function once(eventName, listener){
 
 Emitter.prototype.removeListener = function removeListener(eventName, listener){
     if (!this._listeners[eventName]) return;
-    var listenerIndex = this._listeners.indexOf(listener);
+    var listenerIndex = this._listeners[eventName].indexOf(listener);
     if (listenerIndex < 0) return;
     this._listeners[eventName].splice(listenerIndex, 1);
 };

@@ -24,8 +24,13 @@ self.port.on('init', function(message){
         });
         unsafeWindow.currentVisualization.emit('init', connections);
     }else{
-        unsafeWindow.console.log('cannot call unsafeWindow.currentVisualization: ' + unsafeWindow.currentVisualization);
+        if (unsafeWindow){
+            unsafeWindow.console.log('cannot call unsafeWindow.currentVisualization: ' + unsafeWindow.currentVisualization);
+        }else{
+            console.error('cannot access unsafeWindow to get current visualization');
+        }
     }
 });
 
 unsafeWindow.addon = self.port;
+console.log('initialized addon in content-script');

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>IndexedDB Test</title>
+    <script>
+    var request = indexedDB.open('connectionsdb', 4);
+var connectionsdb;
+request.onerror = function(event) {
+  console.log("failure");
+};
+request.onsuccess = function(event) {
+  console.log("success");
+  connectionsdb = this.result; // this ==== event.target === request
+  connectionsdb.onerror = function(event){
+    console.error('Database error: ' + event.target.errorCode);
+  };
+};
+
+request.onupgradeneeded = function(event){
+    console.log('upgrade needed');
+    var db = event.target.result;
+    // db.deleteObjectStore('connections');
+    // Create an objectStore to hold connections
+    var objectStore = db.createObjectStore('connections', {keyPath: 'id', autoIncrement: true});
+    objectStore.createIndex('source', 'source', {unique: false});
+    objectStore.createIndex('target', 'target', {unique: false});
+    objectStore.createIndex('timestamp', 'timestamp', {unique: false});
+};
+
+
+function filteredConnections(callback){
+    connectionsdb
+        .transaction('connections')
+        .objectStore('connections')
+        // .index(connectionFilter.index)
+        .openCursor().onsuccess = function(event){
+            var cursor = event.target.result;
+            if (cursor) {
+                console.log('connection: %o', cursor.value);
+                cursor.continue();
+            }else{
+                console.log('restore finished');
+            }
+
+        };
+}
+
+function addConnection(connection){
+    if (!connectionsdb){
+        console.error('Database error: Connections database not available yet');
+        return;
+    }
+    var transaction = connectionsdb.transaction(['connections'], 'readwrite');
+    transaction.oncomplete = function(event){console.log('Connection added successfully');};
+    transaction.onerror = function(event){console.error('Connection was not added');};
+    var objectStore = transaction.objectStore('connections');
+    var request = objectStore.add(connection);
+    request.onsuccess = function(event){
+        if (true){
+            console.log('added connection %s', connection);
+        }
+    };
+}
+
+    </script>
+</head>
+
+<body id="home">
+
+	<h1>IndexedDB Test</h1>
+
+</body>
+</html>

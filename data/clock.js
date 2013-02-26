@@ -51,26 +51,26 @@ function resetCanvas(){
     viscanvas = newcanvas;
 }
 
-function addTracker(tracker){
-    var timestamp = new Date(tracker.timestamp);
-    var hour = timestamp.getHours();
-    var meridian = (hour < 12) ? 'am' : 'pm';
-    hour = (hour % 12) + 1; // convert to 12-hour time
-    var minutes = timestamp.getMinutes() + 1;
-    var offset;
-    if (minutes < 15){
-        offset = ':00';
-    }else if(minutes < 30){
-        offset = ':15';
-    }else if(minutes < 45){
-        offset = ':30';
-    }else{
-        offset = ':45';
-    }
-    var time = hour + ' ' + meridian;
-    timeslots[time][offset].push(tracker);
-    var count = timeslots[time][offset].length;
-}
+// function addTracker(tracker){
+//     var timestamp = new Date(tracker.timestamp);
+//     var hour = timestamp.getHours();
+//     var meridian = (hour < 12) ? 'am' : 'pm';
+//     hour = (hour % 12) + 1; // convert to 12-hour time
+//     var minutes = timestamp.getMinutes() + 1;
+//     var offset;
+//     if (minutes < 15){
+//         offset = ':00';
+//     }else if(minutes < 30){
+//         offset = ':15';
+//     }else if(minutes < 45){
+//         offset = ':30';
+//     }else{
+//         offset = ':45';
+//     }
+//     var time = hour + ' ' + meridian;
+//     timeslots[time][offset].push(tracker);
+//     var count = timeslots[time][offset].length;
+// }
 
 function timeToAngle(date){
     return (date.getHours() * 4 + Math.floor(date.getMinutes() / 15)) * 1.875;
@@ -114,19 +114,57 @@ function timeToBucket(timestamp){
     return timestamp.getHours() * 4 + Math.floor(timestamp.getMinutes() / 15);
 }
 
-// TODO: implement timeToBucket
 
 clock.on('connection', onConnection);
 
 
 var tooltipTimer;
 
+function dataAttrToKey(attr){
+    return attr.slice(5).split('-').map(function(part, index){
+        if (index){
+            return part[0].toUpperCase() + part.slice(1);
+        }
+        return part;
+    }).join('');
+}
+
+function dataKeyToAttr(key){
+    return 'data-' + key.replace(/([A-Z])/, '-$1').toLowerCase();
+}
+
+function svgdataset(elem){
+    // work around the fact that SVG elements don't have dataset attributes
+    var ds = function(key, value){
+        if (value === undefined){
+            // act as getter
+            return JSON.parse(elem.getAttribute(dataKeyToAttr(key)));
+        }else{
+            elem.setAttribute(dataKeyToAttr(key), JSON.stringify(value));
+        }
+    }
+    // Create read-only shortcuts for convenience
+    Array.prototype.forEach.call(elem.attributes, function(attr){
+        if (attr.name.startsWith('data-')){
+            try{
+                ds[dataAttrToKey(attr.name)] = JSON.parse(attr.value);
+            }catch(e){
+                ds[dataAttrToKey(attr.name)] = attr.value;
+                console.error('unable to parse %s', attr.value);
+            }
+        }
+    });
+    return ds;
+}
+
 function showTooltip(event){
     // console.log('Show tooltip for %s: %s', event.target.tagName, event.target.getAttribute('data-target'));
     var tooltip = document.getElementById('tooltip');
     tooltip.style.left = '-1000px';
     tooltip.style.display = 'inline-block';
-    tooltip.innerHTML = event.target.getAttribute('data-target');
+    var d = svgdataset(event.target);
+    console.error(event, event.target, event.target.dataset);
+    tooltip.innerHTML = d.source + ' -> ' + d.target + '<br />' + d.timestamp + ' (&times;' + d.howMany + ')';
     var rect = event.target.getClientRects()[0];
     var tooltipWidth = tooltip.offsetWidth;
     // console.log('rect: %o, width: %s', rect, tooltipWidth);
@@ -152,9 +190,6 @@ function timeoutTooltip(){
 }
 
 function hideTooltip(event){
-    // console.log('Hide tooltip for %s: %s', event.target.tagName, event.target.getAttribute('data-target'));
-    // tooltip.style.display = 'none';
-    // placeholder.style.border = '0';
     setTooltipTimeout();
     return false;
 }
@@ -175,11 +210,35 @@ function onConnection(connection){
     }
     var bucket = clock.timeslots[bucketIdx];
     var connectionIdx = bucket.connections.length;
-    bucket.connections.push(connection);
+    // See if we've already added this source-target pair to the visualization
+    var existing = bucket.connections.filter(function(oldConnection){
+        return connection.source === oldConnection.source && connection.target === oldConnection.target;
+    });
+    if (existing.length){
+        if (existing.length > 1){
+            throw new Error('There can be only one!');
+        }
+        existing[0].howMany += 1;
+        if (existing[0].view && existing[0].view.dataset){
+            existing[0].view.setAttribute('data-how-many', existing[0].howMany);
+        }else{
+            console.error('No dataset for view? %o', existing[0].view);
+        }
+        return; // bail early if we've already added to the visualization
+    }else{
+        connection.howMany = 1;
+        bucket.connections.push(connection);
+    }
     var g = svg('g', {
         // transform: 'rotate(90)',
         'class': 'tracker',
-        'data-target': connection.target
+        'data-target': connection.target,
+        'data-timestamp': connection.timestamp.toISOString(),
+        'data-source': connection.source,
+        'data-cookie': connection.cookie,
+        'data-source-visited': connection.sourceVisited,
+        'data-content-type': connection.contentType,
+        'data-how-many': 1
     });
     g.onmouseenter = showTooltip;
     g.onmouseleave = hideTooltip;
@@ -190,19 +249,7 @@ function onConnection(connection){
         cy: y,
         r: 3
     }));
-    // var text = svg('text', {
-    //     x: x + 8,
-    //     y: y - 2
-    // }, connection.target);
-    // g.appendChild(text);
-    // g.insertBefore(svg('rect', {
-    //     x: x,
-    //     y: y-3,
-    //     width: text.getComputedTextLength() + 14,
-    //     height: 6,
-    //     rx: 3,
-    //     ry: 3
-    // }), text);
+    connection.view = g;
     bucket.group.appendChild(g);
 }
 
